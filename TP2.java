@@ -18,6 +18,7 @@ public class TP2 {
     static int idTim = 1;
     static int idPeserta = 1;
     static CircularDoublyLL<Tim> LLTim = new CircularDoublyLL<>();
+    static int totalPeserta = 0; // Variabel global untuk melacak total peserta
 
 
     public static void main(String[] args) {
@@ -82,30 +83,61 @@ public class TP2 {
             }
 
             else if (query.equals("G")) {
-                String posisi = in.next();  // Mendapatkan arah pembentukan tim baru: 'L' atau 'R'
-                Tim timSofita = LLTim.getSofitaSekarang();  // Ambil tim yang sedang diawasi oleh Sofita
-                int idTimBaru = idTim++;  // Generate ID baru untuk tim yang akan dibuat
-                AVLTree treePesertaBaru = new AVLTree();  // Buat AVLTree baru untuk tim
-            
-                // Menambahkan 7 peserta dengan poin awal 1 ke tim baru
-                for (int j = 0; j < 7; j++) {
-                    int idPesertaBaru = idPeserta++;  // ID untuk setiap peserta baru
-                    Peserta pesertaBaru = new Peserta(idPesertaBaru, 1);  // Setiap peserta dengan poin awal 1
-                    treePesertaBaru.root = treePesertaBaru.insert(treePesertaBaru.root, pesertaBaru);  // Insert ke AVLTree
+                String posisi = in.next();
+                Tim timSekarang = LLTim.getSofitaSekarang();
+                
+                if (timSekarang == null) {
+                    out.println(-1);
+                    continue;
                 }
             
-                // Buat tim baru dengan AVLTree peserta dan jumlah peserta awal 7
-                Tim timBaru = new Tim(treePesertaBaru, 7, idTimBaru);
+                // Buat tim baru dengan 7 peserta dengan poin 1
+                AVLTree treePesertaBaru = new AVLTree();
+                int idTimBaru = LLTim.getLast().idTim + 1; // Generate ID tim baru
+                
+                // Inisialisasi tim baru
+                Tim timBaru = new Tim(new AVLTree(), 7, idTimBaru); // sumScore awal 7 karena 7 peserta dengan poin 1
+                timBaru.jumlahPeserta = 7;
+                timBaru.sofiKetemuJoki = 0;
+                timBaru.totalPoinTim = 7; // 7 peserta dengan poin 1
+                timBaru.sumScore = 7;
             
-                // Tentukan posisi penyisipan tim baru berdasarkan arah ('L' atau 'R')
+                // Tambahkan 7 peserta baru dengan poin 1
+                for (int a = 0; a < 7; a++) {
+                    Peserta pesertaBaru = new Peserta(totalPeserta + 1, 1); // poin awal 1
+                    timBaru.treePeserta.root = timBaru.treePeserta.insert(timBaru.treePeserta.root, pesertaBaru);
+                    totalPeserta++; // Increment total peserta global
+                }
+            
+                // Masukkan tim baru ke posisi yang diminta
                 if (posisi.equals("L")) {
-                    LLTim.addBefore(timSofita, timBaru);  // Menambahkan tim baru di sebelah kiri tim yang diawasi Sofita
+                    // Insert sebelum tim yang diawasi Sofita
+                    Tim prev = timSekarang.prev;
+                    timBaru.next = timSekarang;
+                    timBaru.prev = prev;
+                    prev.next = timBaru;
+                    timSekarang.prev = timBaru;
                 } else if (posisi.equals("R")) {
-                    LLTim.addAfter(timSofita, timBaru);  // Menambahkan tim baru di sebelah kanan tim yang diawasi Sofita
+                    // Insert setelah tim yang diawasi Sofita
+                    Tim next = timSekarang.next;
+                    timBaru.prev = timSekarang;
+                    timBaru.next = next;
+                    next.prev = timBaru;
+                    timSekarang.next = timBaru;
+                }
+                
+                LLTim.size++; // Increment ukuran linked list
+            
+                // Cek apakah perlu update joki
+                // Jika tim baru memiliki total poin lebih kecil dari tim joki saat ini
+                if (timBaru.sumScore < LLTim.getPenjokiNow().sumScore) {
+                    LLTim.setPenjokiNow(timBaru);
                 }
             
-                out.println(timBaru.idTim);  // Cetak ID tim baru
+                // Output ID tim baru
+                out.println(idTimBaru);
             }
+            
             
 
             // else if (query.equals("M")) {
@@ -275,39 +307,39 @@ public class TP2 {
             // }
 
             else if (query.equals("M")) {
-                String arah = in.next();
-                Tim timSekarang = LLTim.getSofitaSekarang();
+                String arah = in.next();  // Get movement direction: 'L' or 'R'
+                Tim timSekarang = LLTim.getSofitaSekarang();  // Get current team under Sofita's watch
                 
                 if (timSekarang == null) {
                     out.println(-1);
                     continue;
                 }
             
-                // Gerak sesuai arah
+                // Move Sofita based on direction
                 if (arah.equals("R")) {
                     LLTim.gerakKananSofita();
                 } else if (arah.equals("L")) {
                     LLTim.gerakKiriSofita();
                 }
             
-                // Cek apakah bertemu joki
+                // Check if Sofita found the joki
                 if (LLTim.getSofitaSekarang() == LLTim.getPenjokiNow()) {
                     Tim timJoki = LLTim.getPenjokiNow();
-                    timJoki.sofiKetemuJoki++; // Increment ketemu joki counter
+                    timJoki.sofiKetemuJoki++;
             
-                    // Handle berdasarkan jumlah ketemu joki
+                    // Handle based on number of times caught
                     if (timJoki.sofiKetemuJoki == 1) {
-                        // Hapus 3 peserta dengan poin terbesar
+                        // Remove top 3 players with highest points
                         for (int a = 0; a < 3; a++) {
-                            Node maxNode = timJoki.treePeserta.upperBound(timJoki.treePeserta.root);
+                            Node maxNode = timJoki.treePeserta.findMax();
                             if (maxNode != null) {
-                                timJoki.treePeserta.root = timJoki.treePeserta.delete(timJoki.treePeserta.root, maxNode.key, maxNode.peserta.idPeserta);
+                                timJoki.treePeserta.delete(timJoki.treePeserta.root, maxNode.peserta.poinPeserta, maxNode.peserta.idPeserta);
                                 timJoki.jumlahPeserta--;
-                                timJoki.sumScore -= maxNode.key;
+                                timJoki.sumScore -= maxNode.peserta.poinPeserta;
                             }
                         }
             
-                        // Cek apakah tim masih valid (minimal 7 peserta)
+                        // Check if team size is less than 7
                         if (timJoki.jumlahPeserta < 7) {
                             LLTim.remove(timJoki);
                             if (LLTim.size == 0) {
@@ -315,20 +347,21 @@ public class TP2 {
                                 continue;
                             }
                         }
-            
-                    } else if (timJoki.sofiKetemuJoki == 2) {
-                        // Ubah semua poin peserta menjadi 1
-                        Node nodeCurrent = timJoki.treePeserta.root;
-                        while (nodeCurrent != null) {
-                            timJoki.treePeserta.root = timJoki.treePeserta.delete(timJoki.treePeserta.root, nodeCurrent.key, nodeCurrent.peserta.idPeserta);
-                            nodeCurrent.peserta.poinPeserta = 1;
-                            timJoki.treePeserta.root = timJoki.treePeserta.insert(timJoki.treePeserta.root, nodeCurrent.peserta);
-                            nodeCurrent = timJoki.treePeserta.lowerBound(timJoki.treePeserta.root);
+                    } 
+                    else if (timJoki.sofiKetemuJoki == 2) {
+                        // Create new AVLTree with all players having 1 point
+                        AVLTree newTree = new AVLTree();
+                        while (timJoki.treePeserta.root != null) {
+                            Node maxNode = timJoki.treePeserta.findMax();
+                            timJoki.treePeserta.delete(timJoki.treePeserta.root, maxNode.peserta.poinPeserta, maxNode.peserta.idPeserta);
+                            maxNode.peserta.poinPeserta = 1;
+                            newTree.root = newTree.insert(newTree.root, maxNode.peserta);
                         }
-                        timJoki.sumScore = timJoki.jumlahPeserta; // Update total score
-            
-                    } else if (timJoki.sofiKetemuJoki == 3) {
-                        // Eliminasi tim
+                        timJoki.treePeserta = newTree;
+                        timJoki.sumScore = timJoki.jumlahPeserta; // Each player now has 1 point
+                    } 
+                    else if (timJoki.sofiKetemuJoki == 3) {
+                        // Eliminate the team
                         LLTim.remove(timJoki);
                         if (LLTim.size == 0) {
                             out.println(-1);
@@ -336,44 +369,39 @@ public class TP2 {
                         }
                     }
             
-                    // Cari tim dengan poin paling rendah untuk jadi joki baru
-                    Tim nodeSekarang = LLTim.header.next;
-                    Tim timPoinTerkecil = null;
-                    long poinTerkecil = Long.MAX_VALUE;
-            
-                    for (int k = 0; k < LLTim.size; k++) {
+                    // Find new team with lowest points for joki
+                    Tim nodeSekarang = LLTim.getFirst();
+                    Tim timPoinTerkecil = nodeSekarang;
+                    long poinTerkecil = nodeSekarang.sumScore;
+                    
+                    for (int a = 0; a < LLTim.size; a++) {
                         if (nodeSekarang.sumScore < poinTerkecil && nodeSekarang != LLTim.getSofitaSekarang()) {
                             timPoinTerkecil = nodeSekarang;
                             poinTerkecil = nodeSekarang.sumScore;
                         }
                         nodeSekarang = nodeSekarang.next;
                     }
+                    
+                    LLTim.setPenjokiNow(timPoinTerkecil);
             
-                    // Set joki baru
-                    if (timPoinTerkecil != null) {
-                        LLTim.setPenjokiNow(timPoinTerkecil);
-                    }
-            
-                    // Pindahkan Sofita ke tim dengan poin tertinggi
-                    nodeSekarang = LLTim.header.next;
-                    Tim timPoinTerbesar = nodeSekarang;
-                    long poinTerbesar = nodeSekarang.sumScore;
-            
-                    for (int h = 0; h < LLTim.size; h++) {
-                        if (nodeSekarang.sumScore > poinTerbesar) {
-                            timPoinTerbesar = nodeSekarang;
-                            poinTerbesar = nodeSekarang.sumScore;
+                    // Move Sofita to team with highest points
+                    nodeSekarang = LLTim.getFirst();
+                    Tim timPoinTertinggi = nodeSekarang;
+                    long poinTertinggi = nodeSekarang.sumScore;
+                    
+                    for (int a = 0; a < LLTim.size; a++) {
+                        if (nodeSekarang.sumScore > poinTertinggi) {
+                            timPoinTertinggi = nodeSekarang;
+                            poinTertinggi = nodeSekarang.sumScore;
                         }
                         nodeSekarang = nodeSekarang.next;
                     }
-            
-                    LLTim.setsofitaSekarang(timPoinTerbesar);
+                    
+                    LLTim.setsofitaSekarang(timPoinTertinggi);
                 }
             
-                // Output ID tim tempat Sofita berada
                 out.println(LLTim.getSofitaSekarang().idTim);
             }
-            
 
             else if (query.equals("J")) {
                 String arah = in.next();
@@ -519,7 +547,6 @@ public class TP2 {
             this.treePeserta = treePeserta;
             this.idTim = idTim;
             this.sumScore = sumScore;
-            this.treePeserta = treePeserta;
         }
     }
 
@@ -533,8 +560,18 @@ public class TP2 {
             this.poinPeserta = poinPeserta;
             this.jumlahMatch = 0;
         }
-        
-    
+
+        public int getId(){
+            return idPeserta;
+        }
+
+        public int getPoin(){
+            return poinPeserta;
+        }
+
+        public int getJumlahMatch(){
+            return jumlahMatch;
+        }
     }
 
     // Class DaftarTim digunakan untuk menyimpan semua Tim
@@ -980,6 +1017,17 @@ static class AVLTree {
     }
 
 
+
+    // Helper method to update all points in AVL tree
+    public static void updateAllPoints(Node node, int newPoint) {
+        if (node == null) return;
+        
+        node.peserta.poinPeserta = newPoint;
+        node.key = newPoint;
+        
+        updateAllPoints(node.left, newPoint);
+        updateAllPoints(node.right, newPoint);
+    }
 
     // Implement right rotate
 
